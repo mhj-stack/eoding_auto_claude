@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { validateContentPlan, contentFields, contentSummary } from '../src/content-plan.mjs';
-import { ProductImportPlugin } from '../src/plugin-runtime.mjs';
+import { CONTENT_DESCRIPTION_LIMIT, validateContentPlan, contentFields, contentSummary, contentQuality } from '../src/content-plan.mjs';
 
 const region = { cityId: '4931', countryId: '37', continentId: '3' };
 const sample = () => [
@@ -45,7 +44,32 @@ test('money and promise fields must come from the source and invalid batches are
   assert.throws(() => validateContentPlan([]), /1~50개/);
 });
 
+test('source sections preserve long descriptions, headings and paragraphs without duplicate storage or invented fields', () => {
+  const intro = '원문에 명시된 시설의 소개입니다.';
+  const details = Array.from({ length: 150 }, (_, i) => `${i + 1}. 원문에서 확인한 전시 공간 설명과 관람 동선입니다.`).join('\n');
+  const [item] = validateContentPlan([{ type: 'place', key: 'museum', name: '가상 박물관', cityLabel: '가상도시(TST)', description: intro, descriptionSections: [{ title: '소개', text: intro }, { title: '관람 내용', text: details }, { title: '관람 내용', text: details }] }]);
+  const expected = `소개\n${intro}\n\n관람 내용\n${details}`;
+  assert.ok(expected.length > 3000);
+  assert.equal(item.description, expected);
+  assert.equal(contentFields(item, region, []).description, expected);
+  assert.equal(Object.hasOwn(item, 'descriptionSections'), false);
+  assert.equal(item.address, '');
+  assert.deepEqual(contentQuality([item]), { descriptionCharacters: expected.length, shortDescriptions: [] });
+});
+
+test('sections can supply the full body while short sources remain valid and oversize content never truncates', () => {
+  const base = { type: 'meal', key: 'restaurant', name: '가상 식당', cityLabel: '가상도시(TST)' };
+  const [item] = validateContentPlan([{ ...base, descriptionSections: [{ text: '원문에 있는 짧은 설명' }] }]);
+  assert.equal(item.description, '원문에 있는 짧은 설명');
+  assert.deepEqual(contentQuality([item]).shortDescriptions, [{ key: item.key, name: item.name, characters: item.description.length }]);
+  assert.throws(() => validateContentPlan([{ ...base, description: '가'.repeat(CONTENT_DESCRIPTION_LIMIT + 1) }]), /12000자/);
+  assert.throws(() => validateContentPlan([{ ...base, descriptionSections: [{ title: 'x', text: '가'.repeat(CONTENT_DESCRIPTION_LIMIT) }] }]), /12000자/);
+  assert.throws(() => validateContentPlan([{ ...base, descriptionSections: [{ text: '설명', inventedPrice: 100 }] }]), /title\?, text/);
+  assert.throws(() => validateContentPlan([base]), /description/);
+});
+
 test('content prepare needs no photos and registration requires a review and the user instruction', async t => {
+  const { ProductImportPlugin } = await import('../src/plugin-runtime.mjs');
   const root = await mkdtemp(path.join(os.tmpdir(), 'eoding-content-'));
   const inputDir = path.join(root, 'input'); await mkdir(inputDir);
   const untouched = () => { throw new Error('ERP must not be touched'); };

@@ -9,7 +9,7 @@
 3. `product_import_lookups`로 도시·담당자 표시명을 확인한다. 거래처(agentLabel)는 ERP 거래처 자동완성의 정확한 이름이다(원문 공급사 거래처가 없으면 사용자에게 확인, 테스트는 위임받은 기본 거래처).
 4. `product_fit_prepare({id, fit})` → `product_fit_review({id})` → 요약을 사용자에게 보여준다.
 5. 사용자가 등록을 지시했거나 맡겼으면 `product_fit_register({id, companyId, accountName, planDigest, delegation:{explicitUserRequest:true, userInstruction:'사용자 원문'}})`.
-6. `product_import_get({id, compact:true})`의 `fit.stage`로 단계 진행(images → places → master → options → sales → reference → schedule → terms → final)을 사용자에게 보여준다. `fit.status='completed'`와 `fit.result.erpUrl/previewUrl`을 보고한다. `failed`면 원인을 고치고 같은 호출로 이어서 진행한다(장부 기반, 중복 생성 없음).
+6. `product_import_get({id})`의 `fit.stage`로 진행을 확인한 뒤 `afterRevision:revision,waitMs:30000`으로 변경을 기다린다. 변화가 없으면 원문·초안을 다시 읽거나 출력하지 않는다. `fit.status='completed'`와 `fit.result.erpUrl/previewUrl`을 보고한다. `failed`면 원인과 장부의 저장 여부를 확인하고 허용된 단계만 같은 호출로 이어서 진행한다.
 
 ## fit 형식
 
@@ -56,6 +56,8 @@
 
 ## 판매 가능한 품질 기준 (사용자 피드백 반영)
 
+- **소개와 관광지 설명은 한 줄로 줄이지 않는다.** `master.shortDescription`은 요약용이고 `master.description`, `places[].description`, 참조정보에는 원문의 구체적인 특징·볼거리·체험 흐름·이용 안내를 충분히 담는다. 내용이 있으면 3~6개 문단으로 정리하고 없는 정보로 분량을 채우지 않는다. 같은 문장 반복 대신 각 칸의 역할에 맞게 작성한다. `places[].description`은 기존 문자열 형식이며 콘텐츠 전용 `descriptionSections`를 FIT 초안에 넣지 않는다.
+- 원문에 있는 소개·하이라이트·미팅/교통·포함/불포함·일정·준비물·이용조건·FAQ·취소규정을 한 번의 초안 작성에서 모두 확인한다. 없는 FAQ나 약속을 창작하지 않는다. 자료가 이름뿐인 장소만 관광청·시설 공식 텍스트를 묶어 확인해 근거를 보충한다. 사진 검색은 하지 않는다.
 - **참조정보는 글만 나열하지 않는다.** 상품 소개 첫 요소는 대표 사진 + 한 줄 카피, "투어 하이라이트"는 소제목 → 사진 → 2~3줄 설명 반복, 미팅 장소 사진·복장 안내도 같은 실용 이미지는 해당 블록에 넣는다. 블록은 10개 안팎으로 묶는다(블록 제목이 홈페이지 상단 탭 메뉴가 된다). 이미지는 전체 폭으로 세로로 쌓이므로 한 소제목에 1~2장이 보기 좋다.
 - **일정 사진은 관광지 콘텐츠 연결로 넣는다.** 관광지·크루즈 등은 `places`로 만들고 일정 `kind:"place"`로 연결하면 일정표에 사진·설명·상세보기가 나온다. 미팅·이동·자유시간만 `custom`.
 - **대표 이미지**에는 미팅 장소·안내도 같은 실용 사진을 넣지 않는다. 대표와 상세 이미지는 겹치지 않게(갤러리에 합쳐져 두 번 보인다).
