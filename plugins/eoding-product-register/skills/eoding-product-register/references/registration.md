@@ -56,7 +56,7 @@ next_day는 selects에 지정한다. 당일이면 키를 생략한다(selects �
 source-ready → needs-input/ready-for-review → awaiting-approval → running → completed.
 등록 응답만으로 완료가 아니다. finalCheck=verified와 productUrl을 확인한다.
 approval-submitted는 폼 제출 상태다. product_import_get으로 실제 진행·완료 여부를 확인한다. approvalDelegation은 위임 요청 기록이며 승인이나 저장 완료 증거가 아니다.
-진행 확인에는 `product_import_get({id,compact:true})`를 사용한다. 상태·질문·진행·오류·위임·타이밍·최종 결과는 유지하고 반복 이미지/원문 메타데이터를 생략한다. 근거를 검토할 때만 기본 응답 또는 `includeSource:true`를 사용한다. compact와 includeSource는 함께 사용하지 않는다.
+진행은 기본 요약 응답인 `product_import_get({id})`로 시작한다. 받은 `revision`으로 `product_import_get({id,afterRevision:revision,waitMs:30000})`를 호출해 변경을 기다리고, `unchanged:true`면 같은 변경 번호로 이어서 기다린다. 상태·질문·진행·오류·위임·최종 검증 결과는 보존한다. 전체 메타데이터는 `compact:false`, 원문 근거는 `includeSource:true`가 필요할 때만 조회한다. compact:true와 includeSource:true는 함께 사용하지 않는다.
 needs-reconciliation/interrupted-needs-reconciliation이면 기존 작업번호와 장부를 보존한다. 자동 재승인·중복 생성·장부 삭제를 하지 않는다. review-preparation-failed는 저장 시작 전 준비 실패이고 원인을 해결한 뒤 새 준비 작업을 만들 수 있지만, 실제 ERP에서 생성된 상품이 있으면 먼저 대사한다.
 
 ## 이어하기와 시간

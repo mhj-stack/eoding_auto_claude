@@ -9,12 +9,12 @@ const row = (id, day, step, type, etc1 = '', description = null) => ({ id, day, 
 function fakeErp(t, { saveStatus = 201, loseResponse = false, mutateOther = false } = {}) {
   const schedule = { id: 98, product: 65, title: '가상 일정표', day: 3, night: 2, code: 'S1', visit_route: null };
   const tree = [1, 2, 3].flatMap(day => [row(100 + day, day, 1, 7, `${day}일차 가상 일정`, '설명'), row(200 + day, day, 999, 2)]);
-  const contents = [], places = new Map([['가상 공원', '134980']]), byId = new Map([['place:134980', '가상 공원'], ['optionaltour:14617', '가상 투어']]);
+  const contents = [], places = new Map([['가상 공원', '134980']]), byId = new Map([['place:134980', '가상 공원'], ['optionaltour:14617', '가상 투어']]), descriptions = new Map();
   let nextRow = 500, nextOrigin = 900, posts = [], created = [];
   t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
     const parsed = new URL(url, ORIGIN);
     if (options.method === 'POST') {
-      if (parsed.pathname === '/contents/place/add/') { const name = options.body.get('name_ko'); const id = String(135000 + created.length); created.push(name); places.set(name, id); return new Response(JSON.stringify({ id }), { status: 201 }); }
+      if (parsed.pathname === '/contents/place/add/') { const name = options.body.get('name_ko'); const id = String(135000 + created.length); created.push(name); places.set(name, id); byId.set(`place:${id}`, name); descriptions.set(`place:${id}`, options.body.get('description')); return new Response(JSON.stringify({ id }), { status: 201 }); }
       assert.equal(parsed.pathname, '/tour/master_product_schedule/98/change/');
       const body = JSON.parse(options.body); posts.push(body);
       if (saveStatus >= 300) return Response.json({ message: '가상 거절' }, { status: saveStatus });
@@ -41,7 +41,10 @@ function fakeErp(t, { saveStatus = 201, loseResponse = false, mutateOther = fals
   globalThis.document = { cookie: 'csrftoken=fixture' };
   globalThis.DOMParser = class { parseFromString(html) { return { querySelectorAll: selector => { const name = /name="(\w+)"/.exec(selector)[1]; const m = new RegExp(`name="${name}"[^>]*?(?:value="([^"]*)")?>(?:<option value="([^"]*)" selected)?`).exec(html); return m ? [{ value: m[1] ?? m[2] }] : []; } }; } };
   t.after(() => { delete globalThis.document; delete globalThis.DOMParser; });
-  const page = { url: () => `${ORIGIN}/tour/master_product/65/change/`, goto: async () => {}, evaluate: async (fn, args) => fn(args) };
+  const page = { url: () => `${ORIGIN}/tour/master_product/65/change/`, goto: async () => {}, evaluate: async (fn, args) => {
+    if (args?.contentReadback) { const [, type, id] = /\/contents\/(\w+)\/(\d+)\/change\/$/.exec(args.url); return { names: [byId.get(`${type}:${id}`)], descriptions: [descriptions.get(`${type}:${id}`)], use: ['True'] }; }
+    return fn(args);
+  } };
   return { page, tree, contents, posts: () => posts, created };
 }
 

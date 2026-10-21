@@ -1,4 +1,6 @@
-# 어딩 상품등록기 0.5.0
+# 어딩 상품등록기 0.5.1
+
+0.5.1: 원문·초안의 반복 응답과 변화 없는 진행 조회를 줄였습니다. 기본 진행 응답은 compact이며 `afterRevision`/`waitMs`로 변경을 기다릴 수 있습니다. `includeSource:true`, `compact:false`, `product_import_schema({includeExample:true})`로 필요한 상세만 명시적으로 요청합니다. 콘텐츠는 `descriptionSections`로 여러 단락을 한 번에 입력하고 합친 설명의 전체 저장 여부를 재조회합니다. 설명 부족 신호는 비차단이며 원문에 없는 사실을 채우지 않습니다.
 
 0.5.0: 패키지 일정에 콘텐츠 카드를 연결합니다. 저장된 패키지 일정표(같은 작업의 검증된 결과 또는 지정한 상품·일정표)의 일차 끝에 관광지·식당·선택관광 카드를 추가하고, 콘텐츠는 기존 번호·같은 종류/도시/이름으로 재사용하거나 없으면 만듭니다. 기존 일정 행·식사·호텔은 바꾸지 않으며 일차마다 일정 상세 JSON으로 독립 재조회하고 마지막에 전체를 다시 확인합니다(`product_day_contents_schema` → `product_day_contents_prepare` → `product_day_contents_review` → `product_day_contents_register`).
 

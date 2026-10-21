@@ -4,6 +4,8 @@
 
 const fail = message => { throw new Error(message); };
 const KEY = /^[a-z0-9][a-z0-9-]{0,39}$/;
+// Local input bound, not a claim about the ERP server's maximum. Saved text is read back in full.
+export const CONTENT_DESCRIPTION_LIMIT = 12000;
 
 export const CONTENT_CURRENCIES = Object.freeze(['KRW', 'USD', 'EUR', 'CNY', 'JPY', 'CHF', 'RUB', 'NZD', 'CAD', 'AUD', 'PHP', 'SGD', 'AED', 'SAR', 'QAR', 'VND', 'THB', 'IDR', 'MYR', 'TWD', 'HKD', 'GBP', 'ZAR', 'NOK', 'DKK', 'MXN', 'MNT', 'BHD', 'BDT', 'BRL', 'BND', 'LKR', 'SEK', 'DZD', 'OMR', 'JOD', 'ILS', 'EGP', 'INR', 'CZK', 'CLP', 'KZT', 'KES', 'COP', 'KWD', 'TZS', 'TRY', 'PKR', 'PLN', 'HUF', 'NPR', 'MOP', 'KHR', 'FJD', 'LYD', 'RON', 'MMK', 'ETB', 'UZS']);
 const PAYMENT = Object.freeze({ 현장결제: '1', 여행사결제: '2', 상품가포함: '3' });
@@ -16,6 +18,23 @@ const text = (value, where, max, { optional = false, multiline = false } = {}) =
   if (!multiline && /[\r\n]/.test(value)) fail(`${where}에는 줄바꿈을 넣지 마세요.`);
   return value;
 };
+
+/** Keep source paragraphs intact; sections are an authoring convenience, not duplicated storage. */
+function descriptionText(item, where) {
+  const introduction = text(item.description, where + '.description', CONTENT_DESCRIPTION_LIMIT, { optional: true, multiline: true });
+  const sections = item.descriptionSections;
+  if (sections !== undefined && (!Array.isArray(sections) || sections.length < 1 || sections.length > 30)) fail(`${where}.descriptionSections는 1~30개 배열이어야 합니다.`);
+  const blocks = sections === undefined ? [] : sections.map((section, index) => {
+    const at = `${where}.descriptionSections[${index}]`;
+    if (!section || typeof section !== 'object' || Array.isArray(section) || Object.keys(section).some(key => !['title', 'text'].includes(key))) fail(`${at}는 {title?, text} 객체여야 합니다.`);
+    const title = text(section.title, at + '.title', 100, { optional: true });
+    const body = text(section.text, at + '.text', CONTENT_DESCRIPTION_LIMIT, { multiline: true });
+    return { body, rendered: title ? `${title}\n${body}` : body };
+  });
+  // If the introductory text is also supplied as a section, keep the section's heading once.
+  const merged = [...(introduction && !blocks.some(block => block.body === introduction) ? [introduction] : []), ...blocks.map(block => block.rendered)];
+  return text([...new Set(merged)].join('\n\n'), where + '.description', CONTENT_DESCRIPTION_LIMIT, { multiline: true });
+}
 
 /**
  * Per-type definition: ERP path, the extra keys an item may carry, how they validate, and the
@@ -68,7 +87,7 @@ export function validateContentPlan(contents, { imageIds = new Set() } = {}) {
     const where = `contents[${index}]`;
     if (!item || typeof item !== 'object' || Array.isArray(item)) fail(`${where}는 객체여야 합니다.`);
     const type = CONTENT_TYPES[item.type] ?? fail(`${where}.type은 ${Object.keys(CONTENT_TYPES).join('/')} 중 하나입니다.`);
-    const allowed = ['type', 'key', 'name', 'nameEn', 'cityLabel', 'description', 'keyword', 'images', ...type.extra];
+    const allowed = ['type', 'key', 'name', 'nameEn', 'cityLabel', 'description', 'descriptionSections', 'keyword', 'images', ...type.extra];
     const extra = Object.keys(item).filter(key => !allowed.includes(key));
     if (extra.length) fail(`${where}(${type.label})에 지원하지 않는 항목이 있습니다: ${extra.join(', ')}`);
     if (typeof item.key !== 'string' || !KEY.test(item.key)) fail(`${where}.key는 영문 소문자·숫자·하이픈 1~40자입니다.`);
@@ -77,7 +96,7 @@ export function validateContentPlan(contents, { imageIds = new Set() } = {}) {
     for (const id of images) if (!imageIds.has(id)) fail(`${where}.images의 ${id}는 이 작업에서 수집한 이미지 ID가 아닙니다.`);
     return {
       type: item.type, key: item.key, name: text(item.name, where + '.name', 100), nameEn: text(item.nameEn, where + '.nameEn', 100, { optional: true }),
-      cityLabel: text(item.cityLabel, where + '.cityLabel', 60), description: text(item.description, where + '.description', 3000, { multiline: true }),
+      cityLabel: text(item.cityLabel, where + '.cityLabel', 60), description: descriptionText(item, where),
       keyword: text(item.keyword, where + '.keyword', 200, { optional: true }), images: [...images], ...type.check(item, where)
     };
   });
@@ -97,5 +116,13 @@ export function contentFields(item, region, erpImageIds) {
 }
 
 export function contentSummary(items, existing) {
-  return items.map(item => `${CONTENT_TYPES[item.type].label} · ${item.name} (${item.cityLabel}) — ${existing[item.key] ? '기존 재사용 ' + existing[item.key] : '신규 생성'}, 사진 ${item.images.length ? item.images.length + '장' : '없음'}`);
+  return items.map(item => `${CONTENT_TYPES[item.type].label} · ${item.name} (${item.cityLabel}) — ${existing[item.key] ? '기존 재사용 ' + existing[item.key] : '신규 생성'}, 사진 ${item.images.length ? item.images.length + '장' : '없음'}, 입력 설명 ${item.description.length}자${existing[item.key] ? ' (기존 내용 유지)' : ''}`);
+}
+
+/** Advisory only: a short authoritative source is valid and never triggers invented filler. */
+export function contentQuality(items) {
+  return {
+    descriptionCharacters: items.reduce((total, item) => total + item.description.length, 0),
+    shortDescriptions: items.filter(item => item.description.length < 80).map(item => ({ key: item.key, name: item.name, characters: item.description.length }))
+  };
 }

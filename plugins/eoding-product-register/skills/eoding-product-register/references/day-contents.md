@@ -12,7 +12,7 @@
 1. `product_day_contents_prepare({id, dayContents})`
 2. `product_day_contents_review({id})`: 일정표 상세 JSON, 콘텐츠별 재사용·신규 생성, 이미 저장된 카드를 읽기만 하고 일차별 요약과 `planDigest`를 돌려준다.
 3. 사용자가 등록을 지시했거나 맡겼으면 추가 질문 없이 `product_day_contents_register({id, companyId, accountName, planDigest, delegation:{explicitUserRequest:true, userInstruction:'직접 사용자의 원문'}})`. 백그라운드로 실행한다.
-4. `product_import_get({id,compact:true}).dayContents`의 `stage`(`contents`, `day:N`, `final`)와 `completedDays/dayCount`로 진행을 알린다. `status='completed'`이면 `result.days[].cards[]`(카드 행 번호 `detailId`, 연결 콘텐츠 번호)를 보고한다.
+4. `product_import_get({id})`에서 받은 `revision`으로 `product_import_get({id,afterRevision:revision,waitMs:30000})`를 이어 호출한다. `unchanged:true`면 같은 변경 번호로 기다린다. `.dayContents`의 `stage`(`contents`, `day:N`, `final`)와 `completedDays/dayCount`로 진행을 알린다. `status='completed'`이면 `result.days[].cards[]`(카드 행 번호 `detailId`, 연결 콘텐츠 번호)를 보고한다.
 
 ## dayContents 형식
 

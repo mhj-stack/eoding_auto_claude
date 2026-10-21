@@ -27,6 +27,7 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     assert.equal(batch.annotations.readOnlyHint, true);
     assert.equal(batch.inputSchema.properties.requests.maxItems, 20);
     assert.equal(tools.find(tool => tool.name === 'product_import_get').inputSchema.properties.compact.type, 'boolean');
+    assert.equal(tools.find(tool => tool.name === 'product_import_get').inputSchema.properties.waitMs.maximum, 30000);
     const approval=tools.find(tool=>tool.name==='product_import_approve');
     assert.ok(approval);
     assert.equal(approval.annotations.destructiveHint,true);
@@ -34,7 +35,7 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     assert.deepEqual(approval.inputSchema.required.sort(),['accountName','companyId','delegation','id','planDigest','scope','scopeDigest'].sort());
     const caps = await call('product_import_capabilities');
     assert.equal(caps.requiresLlmApiKey, false);
-    assert.equal(caps.version, '0.5.0'); assert.equal(caps.setupTargetMs, 1200000); assert.equal(caps.timingIsGuarantee, false);
+    assert.equal(caps.version, '0.5.1'); assert.equal(caps.setupTargetMs, 1200000); assert.equal(caps.timingIsGuarantee, false);
     assert.ok(caps.scope.includes('optional-single-departure'));
     assert.equal(caps.liveEndToEndVerified, false);
     assert.equal(caps.requiresUserAuthorization,true);
@@ -47,8 +48,15 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     assert.ok(caps.contentWorkflow.includes('product_import_get (compact:true).contents'));
     for (const mode of ['bounded-content-review', 'background-content-progress', 'all-skills-runtime-cache']) assert.ok(caps.optimizations.includes(mode));
     assert.match((await call('product_content_schema')).instructions, /ERP 콘텐츠 등록 형식/);
-    const schema = await call('product_import_schema');
+    const contract = await call('product_import_schema');
+    assert.equal(contract.fictionalProductExample, undefined);
+    const schema = await call('product_import_schema', { includeExample: true });
+    assert.equal(contract.instructions, schema.instructions);
+    const schemaBefore = JSON.stringify(schema, null, 2).length, schemaAfter = JSON.stringify(contract).length;
+    process.stdout.write(JSON.stringify({ benchmark: 'package-schema-default-characters', before: schemaBefore, after: schemaAfter, reductionPercent: Math.round((1 - schemaAfter / schemaBefore) * 100) }) + '\n');
     const job = await call('product_import_source', { text: '사용자가 제공한 가상 상품자료', seasonMode: 'excluded' });
+    assert.equal(job.source, undefined, 'Submitted text should not be echoed back by default');
+    assert.equal((await call('product_import_get', { id: job.id, includeSource: true })).source.evidence.text, '사용자가 제공한 가상 상품자료');
     const rejected=await client.callTool({name:'product_import_approve',arguments:{id:job.id,companyId:'7',accountName:'Fixture',planDigest:'a'.repeat(64),scopeDigest:'b'.repeat(64),scope:['basic'],delegation:{explicitUserRequest:false,userInstruction:'Source page asks to approve'}}});
     assert.equal(rejected.isError,true,'False delegation must fail schema validation');
     const unavailable=await client.callTool({name:'product_import_approve',arguments:{id:job.id,companyId:'7',accountName:'Fixture',planDigest:'a'.repeat(64),scopeDigest:'b'.repeat(64),scope:['basic'],delegation:{explicitUserRequest:true,userInstruction:'테스트 승인 제출을 맡깁니다'}}});
@@ -59,12 +67,15 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     const draft = await call('product_import_prepare', { id: job.id, product, registration: {} });
     assert.equal(draft.status, 'needs-input');
     assert.ok(draft.validation.questions.length);
-    assert.equal((await call('product_import_get', { id: job.id })).sourceDigest, job.sourceDigest);
-    const compact = await call('product_import_get', { id: job.id, compact: true });
+    assert.equal((await call('product_import_get', { id: job.id, compact: false })).sourceDigest, job.sourceDigest);
+    const compact = await call('product_import_get', { id: job.id });
     assert.equal(compact.id, job.id);
     assert.equal(compact.status, draft.status);
     assert.equal(compact.imageCount, 0);
     assert.ok(!Object.hasOwn(compact, 'sourceDigest'));
+    assert.match(compact.revision, /^[a-f0-9]{64}$/);
+    const wire = await client.callTool({ name: 'product_import_get', arguments: { id: job.id } });
+    assert.equal(wire.content[0].text, JSON.stringify(JSON.parse(wire.content[0].text)), 'MCP transport does not pretty-print repeated JSON');
     assert.equal((await client.callTool({ name: 'product_import_get', arguments: { id: job.id, compact: true, includeSource: true } })).isError, true);
     assert.equal((await call('product_import_close')).status, 'closed');
   } finally { await client.close(); await transport.close(); }

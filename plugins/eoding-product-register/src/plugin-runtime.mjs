@@ -19,7 +19,7 @@ import { resumeCheckpoint } from './plugin-resume.mjs';
 import { erpLookup, LOOKUP_KINDS } from './erp-lookup.mjs';
 import { validateFitPlan, fitSummary } from './fit-plan.mjs';
 import { resolveFit, runFit } from './fit-execution.mjs';
-import { validateContentPlan, contentSummary } from './content-plan.mjs';
+import { validateContentPlan, contentSummary, contentQuality } from './content-plan.mjs';
 import { resolveContents, runContents } from './content-execution.mjs';
 import { validateDayContentPlan, resolveDayContents, runDayContents, dayContentSummary } from './day-contents.mjs';
 
@@ -116,8 +116,9 @@ export class ProductImportPlugin {
   }
   async save(job) { job.updatedAt = new Date().toISOString(); await writeJson(path.join(this.directory(job.id), 'job.json'), job); }
 
-  async source({ url, filePath, text, seasonMode } = {}) {
+  async source({ url, filePath, text, seasonMode, includeSource = true } = {}) {
     return this.exclusive(async () => {
+      if (typeof includeSource !== 'boolean') fail('includeSource는 true 또는 false여야 합니다.');
       const startedAt = new Date().toISOString();
       if (!['excluded', 'included'].includes(seasonMode)) fail('시즌 포함/제외 범위를 먼저 정하세요.');
       if ([url, filePath, text].filter(value => value !== undefined).length !== 1) fail('URL, 엑셀, 상품 원문 텍스트 중 하나만 전달하세요.');
@@ -132,7 +133,7 @@ export class ProductImportPlugin {
       const job = { version: 1, id, createdAt: capturedAt, startedAt, waits: [], status: 'source-ready', seasonMode, source, sourceDigest: digest(source), sourceDescriptor: { id: 'source-' + id, kind: source.kind, reference: source.label, capturedAt }, images: [], draft: null };
       await mkdir(this.directory(id), { mode: 0o700 });
       await writeJson(path.join(this.directory(id), 'job.json'), job, true);
-      return this.get({ id, includeSource: true });
+      return this.get({ id, includeSource });
     });
   }
 
@@ -192,8 +193,9 @@ export class ProductImportPlugin {
       return { bytes, mimeType, sourceUrl, sha256, alt };
   }
 
-  async supplement({ id, url, text, sections } = {}) {
+  async supplement({ id, url, text, sections, includeSource = true } = {}) {
     return this.exclusive(async () => {
+      if (typeof includeSource !== 'boolean') fail('includeSource는 true 또는 false여야 합니다.');
       const job = await this.load(id);
       if (!editable.has(job.status, job) || job.source.kind !== 'url' || url !== job.source.label) fail('검토 전 같은 상품 URL의 보충 원문만 추가할 수 있습니다.');
       if (typeof text !== 'string' || !text.trim() || text.length > 200000 || !Array.isArray(sections) || !sections.length || sections.some(value => typeof value !== 'string' || !value.trim() || value.length > 200)) fail('보충 원문과 직접 확인한 상세/일차 구간이 필요합니다.');
@@ -201,7 +203,7 @@ export class ProductImportPlugin {
       if (job.source.supplements.length >= 10) fail('보충 원문은 최대 10회 추가할 수 있습니다.');
       if (!job.source.supplements.some(item => item.digest === digest(text))) job.source.supplements.push({ text, sections: copy(sections), url, untrusted: true, digest: digest(text), capturedAt: new Date().toISOString() });
       job.sourceDigest = digest(job.source); job.status = 'source-ready'; job.validation = null;
-      await this.save(job); return this.get({ id, includeSource: true });
+      await this.save(job); return this.get({ id, includeSource });
     });
   }
 
@@ -566,7 +568,7 @@ export class ProductImportPlugin {
       const items = validateContentPlan(contents, { imageIds: new Set(job.images.map(image => image.id)) });
       job.contents = { status: 'ready-for-review', items, preparedAt: new Date().toISOString() };
       await this.save(job);
-      return { id, status: 'ready-for-review', count: items.length, withoutPhotos: items.filter(item => !item.images.length).map(item => item.name) };
+      return { id, status: 'ready-for-review', count: items.length, quality: contentQuality(items), withoutPhotos: items.filter(item => !item.images.length).map(item => item.name) };
     });
   }
 
@@ -745,7 +747,29 @@ export class ProductImportPlugin {
     };
   }
 
-  async get({ id, includeSource = false, compact = false } = {}) {
+  async get({ id, includeSource = false, compact = false, afterRevision, waitMs = 0 } = {}) {
+    if (typeof includeSource !== 'boolean' || typeof compact !== 'boolean' || (compact && includeSource)) fail('compact와 includeSource는 함께 사용할 수 없습니다.');
+    if (afterRevision !== undefined && (!compact || !/^[a-f0-9]{64}$/.test(afterRevision))) fail('afterRevision은 compact:true와 이전 응답의 revision이 필요합니다.');
+    if (!Number.isSafeInteger(waitMs) || waitMs < 0 || waitMs > 30000 || (waitMs && afterRevision === undefined)) fail('waitMs는 afterRevision과 함께 0~30000 범위로 지정하세요.');
+    const deadline = Date.now() + waitMs;
+    for (;;) {
+      const state = await this.getSnapshot({ id, includeSource, compact });
+      // A new result/failure must always include the independent readback and
+      // reconciliation evidence, even when the caller repeats its final revision.
+      const states = [state, state.fit, state.contents, state.dayContents].filter(Boolean);
+      const active = states.some(item => ['running', 'opening-review', 'awaiting-approval'].includes(item.status));
+      const needsAttention = states.some(item => item.persistenceError || item.status === 'failed' || item.status.includes('reconciliation'));
+      if (afterRevision === undefined || state.revision !== afterRevision || !active || needsAttention) return state;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        const workflows = Object.fromEntries(['fit', 'contents', 'dayContents'].filter(name => state[name]?.status === 'running').map(name => [name, { status: 'running', stage: state[name].stage }]));
+        return { id, status: Object.keys(workflows).length ? 'running' : state.status, revision: state.revision, unchanged: true, retryAfterMs: 30000, ...workflows };
+      }
+      await new Promise(resolve => setTimeout(resolve, Math.min(500, remaining)));
+    }
+  }
+
+  async getSnapshot({ id, includeSource = false, compact = false } = {}) {
     if (typeof compact !== 'boolean' || (compact && includeSource)) fail('compact와 includeSource는 함께 사용할 수 없습니다.');
     const job = await this.load(id);
     const intent=await readFile(path.join(this.directory(id),'delegated-approval.json'),'utf8').then(JSON.parse).catch(error=>{if(error.code==='ENOENT')return null;throw error;});
@@ -758,6 +782,10 @@ export class ProductImportPlugin {
       if (this.active.persistenceError) status = 'needs-reconciliation';
     } else if (['opening-review', 'awaiting-approval'].includes(status)) status = 'interrupted-needs-reconciliation';
     const state = { id, status, resumeFrom: job.resumeFrom ?? null, timing: workflowTiming(job), approvalDelegation, progress: this.active?.id === id ? executionProgress(this.active.launcher.writes) : job.failure?.progress ?? null, validation: job.validation ?? null, result: job.result ?? null, failure: job.failure ?? null, fit: this.fitState(job), contents: this.contentState(job), dayContents: this.dayContentsState(job) };
+    // Elapsed durations change without new evidence. Only material state changes
+    // (including budget warnings, failures and final readback) advance revision.
+    const stableStage = value => value && Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'durationMs'));
+    state.revision = digest({ ...state, timing: { warning: state.timing.warning, targetMet: state.timing.targetMet }, fit: stableStage(state.fit), contents: stableStage(state.contents), dayContents: stableStage(state.dayContents), updatedAt: job.updatedAt ?? job.createdAt, sourceDigest: job.sourceDigest, imageCount: job.images.length });
     if (compact) return { ...state, imageCount: job.images.length };
     return { ...state, sourceQuality: { ...sourceQuality(job.source), supplementCount: job.source.supplements?.length ?? 0 }, seasonMode: job.seasonMode, sourceDescriptor: job.sourceDescriptor, sourceDigest: job.sourceDigest, images: copy(job.images), ...(includeSource ? { source: copy(job.source), draft: copy(job.draft) } : {}) };
   }
