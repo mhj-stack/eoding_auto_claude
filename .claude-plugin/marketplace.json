@@ -1,6 +1,7 @@
 {
-  "name": "eoding-auto",
+  "name": "eoding-auto-claude",
   "owner": { "name": "mhj-stack" },
+  "description": "어딩 ERP 상품·콘텐츠 등록 자동화 (Claude Code용)",
   "plugins": [
     {
       "name": "eoding-product-register",

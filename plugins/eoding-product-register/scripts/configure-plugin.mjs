@@ -18,6 +18,4 @@ const entry = { command: process.execPath, args: [path.join(root, 'scripts', 'pl
 const json = value => JSON.stringify(value, null, 2) + '\n';
 await writeFile(path.join(output, 'mcp-generic.json'), json({ mcpServers: { 'eoding-product-register': entry } }));
 await writeFile(path.join(output, 'mcp-vscode.json'), json({ servers: { 'eoding-product-register': { type: 'stdio', ...entry } } }));
-const quote = value => JSON.stringify(value);
-await writeFile(path.join(output, 'codex.toml'), '[mcp_servers.eoding-product-register]\nstartup_timeout_sec = 300\ncommand = ' + quote(entry.command) + '\nargs = [' + entry.args.map(quote).join(', ') + ']\n\n[mcp_servers.eoding-product-register.env]\n' + Object.entries(entry.env).map(([key, value]) => key + ' = ' + quote(value)).join('\n') + '\n');
 console.log(JSON.stringify({ status: 'connection-files-created', output, inputDir, automaticHostConfiguration: false }, null, 2));

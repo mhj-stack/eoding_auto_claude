@@ -9,13 +9,13 @@ import { promisify } from 'node:util';
 const run = promisify(execFile);
 const root = fileURLToPath(new URL('../', import.meta.url));
 test('portable plugin manifest and generated host configs point to the same tested server with private state outside the plugin', async t => {
-  const plugin = JSON.parse(await readFile(path.join(root, 'plugin.json'), 'utf8'));
-  const mcp = JSON.parse(await readFile(path.join(root, 'mcp.json'), 'utf8'));
+  const plugin = JSON.parse(await readFile(path.join(root, '.claude-plugin/plugin.json'), 'utf8'));
+  const mcp = JSON.parse(await readFile(path.join(root, '.mcp.json'), 'utf8'));
   assert.equal(plugin.name, 'eoding-product-register');
   const entry = mcp.mcpServers[plugin.name];
   assert.equal(entry.type, 'stdio'); assert.equal(entry.command, 'node');
-  assert.deepEqual(entry.args, ['${PLUGIN_ROOT}/scripts/plugin-start.mjs']);
-  assert.equal(entry.env.EODING_DATA_DIR, '${PLUGIN_DATA}');
+  assert.deepEqual(entry.args, ['${CLAUDE_PLUGIN_ROOT}/scripts/plugin-start.mjs']);
+  assert.equal(entry.env.EODING_DATA_DIR, '${CLAUDE_PLUGIN_DATA}');
   const dir = await mkdtemp(path.join(os.tmpdir(), 'plugin-config-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   await run(process.execPath, [path.join(root, 'scripts/configure-plugin.mjs'), '--data-dir', dir]);
@@ -24,6 +24,5 @@ test('portable plugin manifest and generated host configs point to the same test
   assert.equal(generic.mcpServers[plugin.name].command, process.execPath);
   assert.deepEqual(vscode.servers[plugin.name].args, generic.mcpServers[plugin.name].args);
   assert.equal(generic.mcpServers[plugin.name].env.EODING_DATA_DIR, dir);
-  const codex = await readFile(path.join(dir, 'connections/codex.toml'), 'utf8');
-  assert.ok(codex.includes(JSON.stringify(generic.mcpServers[plugin.name].args[0])));
+  await assert.rejects(readFile(path.join(dir, 'connections/codex.toml'), 'utf8'), { code: 'ENOENT' });
 });

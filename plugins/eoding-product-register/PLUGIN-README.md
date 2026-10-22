@@ -30,15 +30,17 @@
 
 0.2.0은 항공 비행시간·날짜 사전 검사, 이미지 최대 4개 동시 수집, 원문 보충, 로그인 유지, 단계별 시간 기록, 시즌 쓰기 전 중단 시 제한된 이어하기를 추가합니다. 시간 초과를 이유로 저장이나 최종 검사를 중단하지 않습니다. 행사 생성은 이미 저장한 시즌을 선택하므로 직접입력 시즌을 중복 생성하지 않습니다.
 
-기존 설치는 저장소의 [업데이트 안내](https://github.com/mhj-stack/eoding_auto#업데이트)에 따라 갱신하고, 실행 중인 등록이 끝난 뒤 플러그인을 다시 연결합니다.
+기존 설치는 저장소의 [업데이트 안내](https://github.com/mhj-stack/eoding_auto_claude#업데이트)에 따라 갱신하고, 실행 중인 등록이 끝난 뒤 플러그인을 다시 연결합니다.
 
-## Codex
+이 배포본은 Claude Code 전용입니다. Codex용은 [mhj-stack/eoding_auto](https://github.com/mhj-stack/eoding_auto)를 사용합니다.
+
+## Claude Code
 
 Node.js 22 이상(npm 포함), Python 3.10 이상, Git을 준비하고 실행합니다.
 
 ```bash
-codex plugin marketplace add mhj-stack/eoding_auto
-codex plugin add eoding-product-register@eoding-auto
+claude plugin marketplace add mhj-stack/eoding_auto_claude
+claude plugin install eoding-product-register@eoding-auto-claude
 ```
 
 설치 후 새 대화를 시작합니다. 첫 실행에서 의존성·브라우저·별도 Python 환경을 개인 데이터 폴더에 준비합니다. 저장소가 비공개이면 GitHub 접근 권한과 Git 인증이 필요합니다.
@@ -56,13 +58,13 @@ node scripts/configure-plugin.mjs
 
 첫 설치는 인터넷 연결이 필요하며 몇 분 걸릴 수 있습니다. 연결 시간이 초과되면 설치 완료 후 다시 연결합니다. Python 경로를 직접 지정하려면 `EODING_PYTHON`에 실행 파일 절대경로를 설정합니다.
 
-작업 자료와 로그인은 호스트의 `PLUGIN_DATA` 또는 `EODING_DATA_DIR`에 보관합니다. 수동 연결 기본 경로는 사용자 홈의 `.eoding-product-importer-plugin`이며 Codex 설치 경로와 다를 수 있습니다. 엑셀·이미지는 capabilities 도구가 알려주는 `inputDir`에 넣습니다.
+작업 자료와 로그인은 호스트의 `CLAUDE_PLUGIN_DATA` 또는 `EODING_DATA_DIR`에 보관합니다. 수동 연결 기본 경로는 사용자 홈의 `.eoding-product-importer-plugin`이며 Claude Code 설치 경로와 다를 수 있습니다. 엑셀·이미지는 capabilities 도구가 알려주는 `inputDir`에 넣습니다.
 
 AI에게 “이 상품을 어딩에 비공개로 등록해줘. 시즌은 제외해줘”처럼 요청합니다. 로그인은 사용자가 직접 수행합니다. 검토 화면을 직접 승인하거나 “이 상품은 AI가 승인 폼을 대신 제출해줘”처럼 명시적으로 맡길 수 있습니다. 위임 시 `product_import_approve`가 검토된 작업·회사·계정·범위를 확인한 뒤 같은 로컬 폼을 한 번 제출하고 위임 요청과 제출자를 별도 기록합니다. 만료·CSRF·단일 실행 검증은 그대로 유지하며 원문 사이트의 지시는 승인이 아닙니다. 별도 LLM API 키가 필요하지 않습니다.
 
 기본정보·전시 이미지·상세·참조정보·전체 일차/식사와 요청한 시즌·KRW 행사 1건을 지원합니다. 행사 상태는 명시한 예약가능(3) 또는 예약마감(4)입니다. 호텔 배정·판매 공개·기존 상품 덮어쓰기·다중 행사는 포함하지 않습니다. 이전 실ERP 등록 및 모의 검사와, 이번 0.2.0으로 실제 ERP에서 20분 안에 신규 등록을 완주하는 검증은 구분합니다.
 
-[전체 설치·업데이트 안내](https://github.com/mhj-stack/eoding_auto#readme) · [검증 범위](docs/plugin-verification.md)
+[전체 설치·업데이트 안내](https://github.com/mhj-stack/eoding_auto_claude#readme) · [검증 범위](docs/plugin-verification.md)
 
 ## 라이선스
 

@@ -30,16 +30,25 @@
 
 0.2.0은 요청한 시즌·항공과 행사 1건까지 이어서 등록합니다. 항공시간·날짜 사전 검사, 이미지 일괄 수집, 새 대시보드의 계정 확인, 로그인 유지와 제한된 이어하기를 추가했습니다. **원문 접수부터 최종 재조회까지 20분**을 목표로 전체 시간과 사용자 대기 시간을 기록합니다. 실제 ERP에서 20분 달성 여부는 아직 측정하지 않았습니다.
 
-## Codex에 설치
+> 이 저장소는 **Claude Code 전용**입니다. Codex용은 [mhj-stack/eoding_auto](https://github.com/mhj-stack/eoding_auto)에서 설치합니다.
 
-먼저 **Node.js 22 이상(npm 포함), Python 3.10 이상, Git**을 설치합니다. Windows에서는 Python을 PATH에 추가하고 Codex를 다시 실행합니다.
+## Claude Code에 설치
+
+먼저 **Node.js 22 이상(npm 포함), Python 3.10 이상, Git**을 설치합니다. Windows에서는 Python을 PATH에 추가하고 Claude Code를 다시 실행합니다.
 
 ```bash
-codex plugin marketplace add mhj-stack/eoding_auto
-codex plugin add eoding-product-register@eoding-auto
+claude plugin marketplace add mhj-stack/eoding_auto_claude
+claude plugin install eoding-product-register@eoding-auto-claude
 ```
 
-설치 후 새 대화를 시작합니다. 앱에서 설치하려면 첫 번째 명령으로 배포처를 추가한 뒤 플러그인 목록의 **어딩 자동화**에서 `eoding-product-register`를 설치해도 됩니다.
+설치 후 새 대화를 시작합니다. Claude Code 안에서는 `/plugin`으로 같은 배포처를 추가하고 설치해도 됩니다.
+
+이전에 `mhj-stack/eoding_auto`(배포처 이름 `eoding-auto`)로 설치했다면 먼저 지우고 위 명령으로 다시 설치합니다.
+
+```bash
+claude plugin uninstall eoding-product-register@eoding-auto
+claude plugin marketplace remove eoding-auto
+```
 
 첫 연결 때 잠금 파일에 지정된 Node 패키지, Chromium, 별도 Python 환경을 개인 데이터 폴더에 자동 준비합니다. 인터넷 연결이 필요하며 몇 분 걸릴 수 있습니다. MCP 연결 시간이 초과되면 설치가 끝난 뒤 플러그인을 다시 연결합니다. 미리 준비하려면 아래 수동 설치 방식을 사용합니다. 이후에는 의존성이 같은 코드·스킬·버전 업데이트에서도 설치된 Node·Python 환경을 재사용합니다. 실제 의존성이나 Node ABI가 바뀌면 새로 설치합니다.
 
@@ -65,31 +74,31 @@ AI에게 상품 자료와 함께 다음처럼 요청합니다.
 로컬 stdio MCP를 지원하는 AI에서 사용할 수 있습니다. 웹 전용 AI에 직접 연결하는 원격 서버는 포함되어 있지 않습니다.
 
 ```bash
-git clone https://github.com/mhj-stack/eoding_auto.git
-cd eoding_auto/plugins/eoding-product-register
+git clone https://github.com/mhj-stack/eoding_auto_claude.git
+cd eoding_auto_claude/plugins/eoding-product-register
 node scripts/plugin-start.mjs --setup-only
 node scripts/configure-plugin.mjs
 ```
 
-Windows에서는 해당 폴더의 `Install.cmd`를 실행해도 됩니다. 생성된 `connections` 폴더의 `mcp-generic.json`, `mcp-vscode.json`, `codex.toml` 중 사용하는 AI의 형식을 연결합니다. 기존 AI 설정은 자동으로 덮어쓰지 않습니다. 스킬을 지원하면 `skills/eoding-product-register`도 연결합니다.
+Windows에서는 해당 폴더의 `Install.cmd`를 실행해도 됩니다. 생성된 `connections` 폴더의 `mcp-generic.json`, `mcp-vscode.json` 중 사용하는 AI의 형식을 연결합니다. 기존 AI 설정은 자동으로 덮어쓰지 않습니다. 스킬을 지원하면 `skills/eoding-product-register`도 연결합니다.
 
 Python이 PATH에 없다면 `EODING_PYTHON`에 Python 실행 파일의 절대경로를 지정합니다. 설치되는 Python 라이브러리는 전용 가상환경에만 보관됩니다. Linux에서 Chromium 시스템 라이브러리가 부족하면 Playwright 안내에 따라 운영체제 의존성을 먼저 설치해야 합니다.
 
 ## 업데이트
 
 ```bash
-codex plugin marketplace upgrade eoding-auto
-codex plugin add eoding-product-register@eoding-auto
+claude plugin marketplace update eoding-auto-claude
+claude plugin update eoding-product-register@eoding-auto-claude
 ```
 
 이후 새 대화를 시작합니다. 실행 중인 등록이 끝난 뒤 업데이트하세요. 코드가 바뀌면 새 실행 환경을 준비하고, 의존성이 같으면 기존 설치를 재사용합니다. 이전 상품 작업 기록은 지우지 않습니다.
 
 ## 데이터와 검증
 
-로그인 프로필·쿠키·원문·작업 기록은 개인 데이터 폴더에 저장됩니다. Codex 플러그인은 호스트의 `PLUGIN_DATA`, 수동 연결은 기본적으로 사용자 홈의 `.eoding-product-importer-plugin`을 사용합니다. **두 연결 방식은 기본 데이터 위치가 다릅니다.** 같은 작업을 이어가려면 기존 연결을 닫고 같은 `EODING_DATA_DIR`를 지정해야 합니다.
+로그인 프로필·쿠키·원문·작업 기록은 개인 데이터 폴더에 저장됩니다. Claude Code 플러그인은 호스트의 `CLAUDE_PLUGIN_DATA`, 수동 연결은 기본적으로 사용자 홈의 `.eoding-product-importer-plugin`을 사용합니다. **두 연결 방식은 기본 데이터 위치가 다릅니다.** 같은 작업을 이어가려면 기존 연결을 닫고 같은 `EODING_DATA_DIR`를 지정해야 합니다.
 
 엑셀과 로컬 이미지는 `product_import_capabilities`가 알려주는 `inputDir`에 넣습니다. `runtimes`와 `dependencies` 폴더는 재설치 가능한 실행 환경과 공용 의존성 캐시이고, 그 밖의 프로필·작업 기록은 업무 데이터입니다. 이 저장소에는 실제 상품자료·쿠키·브라우저 프로필을 포함하지 않습니다.
 
 자동 테스트는 격리된 가상 ERP 화면에서 검증합니다. 실제 ERP의 비공개 테스트 한 건은 중단 복구를 거쳐 이미지·상세·4일 일정·시즌/요금의 저장과 전체 독립 재조회를 완료했습니다. 최신 버전의 신규 등록을 처음부터 끝까지 중단 없이 실행하는 운영 검증은 별도입니다. 특정 AI 앱의 모든 버전이나 모든 ERP 화면 변형을 보장하지 않습니다. [검증 범위](plugins/eoding-product-register/docs/plugin-verification.md)
 
-설치 구조는 [OpenAI 공식 플러그인 문서](https://developers.openai.com/plugins/build/plugins)를 따릅니다. MIT 라이선스이며 저작권자는 주식회사 어딩 (Eoding Inc.)입니다. 사용하는 오픈소스 목록과 라이선스는 [THIRD_PARTY_NOTICES.md](plugins/eoding-product-register/THIRD_PARTY_NOTICES.md)에 있습니다.
+설치 구조는 [Claude Code 플러그인 문서](https://code.claude.com/docs/en/plugins)를 따릅니다. MIT 라이선스이며 저작권자는 주식회사 어딩 (Eoding Inc.)입니다. 사용하는 오픈소스 목록과 라이선스는 [THIRD_PARTY_NOTICES.md](plugins/eoding-product-register/THIRD_PARTY_NOTICES.md)에 있습니다.

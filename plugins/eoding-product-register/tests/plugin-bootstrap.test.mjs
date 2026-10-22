@@ -11,7 +11,8 @@ async function fixture(t) {
   t.after(() => rm(dir, { recursive: true, force: true, maxRetries: 3 }));
   const root = path.join(dir, 'plugin'), dataDir = path.join(dir, 'private');
   for (const name of ['src', 'scripts', 'skills/eoding-product-register', 'examples']) await mkdir(path.join(root, name), { recursive: true });
-  await writeFile(path.join(root, 'plugin.json'), '{"name":"fixture","version":"0.2.5"}');
+  await mkdir(path.join(root, '.claude-plugin'), { recursive: true });
+  await writeFile(path.join(root, '.claude-plugin/plugin.json'), '{"name":"fixture","version":"0.2.5"}');
   const manifest = { name: 'fixture', version: '0.2.5', type: 'module', private: true, dependencies: { 'fixture-dependency': '1.0.0' }, engines: { node: '>=22' } };
   const lock = { name: 'fixture', version: '0.2.5', lockfileVersion: 3, requires: true, packages: { '': { name: manifest.name, version: manifest.version, dependencies: manifest.dependencies, engines: manifest.engines }, 'node_modules/fixture-dependency': { version: '1.0.0', resolved: 'https://example.com/fixture.tgz', integrity: 'sha512-fixture' } } };
   await writeFile(path.join(root, 'package.json'), JSON.stringify(manifest));
@@ -218,15 +219,15 @@ test('runtime allowlist excludes local state and tests, and rejects linked sourc
 test('portable plugin and optional parent marketplace resolve to the same bootstrap', async () => {
   const repo = fileURLToPath(new URL('../../../', import.meta.url));
   // Tests run inside plugins/eoding-product-register/tests.
-  const catalogPath = path.resolve(repo, '.agents/plugins/marketplace.json');
+  const catalogPath = path.resolve(repo, '.claude-plugin/marketplace.json');
   const catalog = await readFile(catalogPath, 'utf8').then(JSON.parse).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
   // Installed/portable bundles have no parent marketplace repository. Validate
   // their actual entrypoint; when a catalog exists, preserve its resolution check.
   const item = catalog ? catalog.plugins.find(item => item.name === 'eoding-product-register') : { name: 'eoding-product-register' };
-  if (catalog) assert.equal(catalog.name, 'eoding-auto');
-  const root = catalog ? path.resolve(path.dirname(path.dirname(path.dirname(catalogPath))), item.source.path) : fileURLToPath(new URL('../', import.meta.url));
-  const plugin = JSON.parse(await readFile(path.join(root, 'plugin.json'), 'utf8'));
-  const config = JSON.parse(await readFile(path.join(root, 'mcp.json'), 'utf8'));
+  if (catalog) assert.equal(catalog.name, 'eoding-auto-claude');
+  const root = catalog ? path.resolve(path.dirname(path.dirname(catalogPath)), item.source) : fileURLToPath(new URL('../', import.meta.url));
+  const plugin = JSON.parse(await readFile(path.join(root, '.claude-plugin/plugin.json'), 'utf8'));
+  const config = JSON.parse(await readFile(path.join(root, '.mcp.json'), 'utf8'));
   assert.equal(plugin.name, item.name);
-  assert.deepEqual(config.mcpServers[item.name].args, ['${PLUGIN_ROOT}/scripts/plugin-start.mjs']);
+  assert.deepEqual(config.mcpServers[item.name].args, ['${CLAUDE_PLUGIN_ROOT}/scripts/plugin-start.mjs']);
 });

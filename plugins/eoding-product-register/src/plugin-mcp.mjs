@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { ProductImportPlugin } from './plugin-runtime.mjs';
 import { flightMinutes, SETUP_TARGET_MS } from './plugin-workflow.mjs';
 
-const dataDir = process.env.EODING_DATA_DIR || process.env.PLUGIN_DATA || path.join(homedir(), '.eoding-product-importer-plugin');
+const dataDir = process.env.EODING_DATA_DIR || process.env.CLAUDE_PLUGIN_DATA || path.join(homedir(), '.eoding-product-importer-plugin');
 const python = path.join(dataDir, 'python', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 if (!process.env.EODING_PYTHON && existsSync(python)) process.env.EODING_PYTHON = python;
 const runtime = new ProductImportPlugin({ dataDir, inputDir: process.env.EODING_INPUT_DIR });

@@ -11,7 +11,7 @@ export const pluginRoot = fileURLToPath(new URL('../', import.meta.url));
 const log = message => process.stderr.write(`[eoding-product-register] ${message}\n`);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export function privateDataDir(value = process.env.EODING_DATA_DIR || process.env.PLUGIN_DATA) {
+export function privateDataDir(value = process.env.EODING_DATA_DIR || process.env.CLAUDE_PLUGIN_DATA) {
   const dir = path.resolve(value || path.join(homedir(), '.eoding-product-importer-plugin'));
   if (dir === path.parse(dir).root || dir === path.resolve(homedir()) || dir === path.resolve(pluginRoot) || dir.startsWith('\\\\')) {
     throw new Error('Use a dedicated local EODING_DATA_DIR directory.');
@@ -20,7 +20,7 @@ export function privateDataDir(value = process.env.EODING_DATA_DIR || process.en
 }
 
 export async function runtimeFiles(root) {
-  const files = ['plugin.json', 'package.json', 'package-lock.json', 'requirements.txt'];
+  const files = ['.claude-plugin/plugin.json', 'package.json', 'package-lock.json', 'requirements.txt'];
   async function walk(relative) {
     if (!(await lstat(path.join(root, relative))).isDirectory()) throw new Error(`Plugin directory is invalid or a symlink: ${relative}`);
     for (const entry of (await readdir(path.join(root, relative), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
