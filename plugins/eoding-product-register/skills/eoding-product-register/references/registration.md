@@ -22,6 +22,7 @@ registration:
 - basic: {options: {cityLabel, managerLabel, priority, cutoffDays}}
   - cityLabel/managerLabel은 ERP 검색결과의 정확한 표시값. priority/cutoffDays는 1~999의 실제 운영값.
 - display: {fields: {short_description?, product_description?, badge1?, badge2?, badge3?}, images: [{sourceImageId}], imageQuery, sourceMode?}
+  - badge1~badge3는 ERP에서 합쳐 15자(공백 포함)까지만 저장된다. 넘으면 prepare에서 거절한다.
   - fields에는 원문에 근거한 표시 문구가 최소 하나 있어야 한다.
   - imageQuery는 이미지 검색용 명시 문자열.
   - 수집한 모든 이미지를 갤러리에 쓸 때는 sourceMode를 생략한다.

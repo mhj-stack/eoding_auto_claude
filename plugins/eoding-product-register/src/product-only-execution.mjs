@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { releaseStageTransport } from './stage-transport.mjs';
 
 const PHASES = Object.freeze(['basic', 'display', 'content', 'shell', 'day', 'season', 'departure']);
 const WRITE_PHASES = Object.freeze(['basic', 'display', 'content', 'shell', 'season']);
@@ -292,6 +293,7 @@ export class ProductOnlyExecutionCoordinator {
       if (!finalVerified) throw new Error('final independent GET check did not verify the product-only result');
       const finalCheck = { status: 'verified', result: clone(finalRead), verification: clone(finalVerified) };
       await this._evidence({ status: 'final-get-verified', finalCheck, targets: clone(targets) });
+      await releaseStageTransport(page);
       const elapsedMs = activeElapsed();
       const overBudget = elapsedMs > this.processingBudgetMs;
       if (overBudget) await this._evidence({ status: 'budget-overrun-final-verified', elapsedMs, budgetMs: this.processingBudgetMs, finalCheck });

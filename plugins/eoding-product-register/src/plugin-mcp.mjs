@@ -13,7 +13,7 @@ const dataDir = process.env.EODING_DATA_DIR || process.env.CLAUDE_PLUGIN_DATA ||
 const python = path.join(dataDir, 'python', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 if (!process.env.EODING_PYTHON && existsSync(python)) process.env.EODING_PYTHON = python;
 const runtime = new ProductImportPlugin({ dataDir, inputDir: process.env.EODING_INPUT_DIR });
-const server = new McpServer({ name: 'eoding-product-register', version: '0.5.1' });
+const server = new McpServer({ name: 'eoding-product-register', version: '0.6.0' });
 const id = z.string().uuid();
 const object = z.record(z.unknown());
 const readonly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -25,8 +25,8 @@ const safe = fn => async args => {
 };
 const register = (name, description, inputSchema, annotations, handler) => server.registerTool(name, { description, inputSchema, annotations }, safe(handler));
 register('product_import_capabilities', 'Read plugin scope, installation paths and the source → prepare → authorized review → result workflow.', {}, readonly, async () => ({
-  version: '0.5.1', transport: 'stdio', requiresLlmApiKey: false,
-  scope: ['new-private-basic', 'display-images', 'detail-reference-content', 'schedule', 'all-days-meals', 'optional-season-prices-flight', 'optional-single-departure', 'fit-private-product-options-sales-contents', 'erp-contents-place-meal-shopping-optionaltour-meeting', 'package-day-content-cards'],
+  version: '0.6.0', transport: 'stdio', requiresLlmApiKey: false,
+  scope: ['new-private-basic', 'display-images', 'detail-reference-content', 'schedule', 'all-days-meals', 'optional-season-prices-flight', 'optional-single-departure', 'fit-private-product-options-sales-contents', 'erp-contents-place-meal-shopping-optionaltour-meeting', 'package-day-content-cards', 'product-extra-options'],
   excluded: ['existing-product-overwrite', 'multiple-events', 'hotel-assignment', 'publish', 'sales-channel'],
   requiresUserAuthorization: true, approvalModes: ['human-form', 'explicit-user-delegation'], liveEndToEndVerified: false,
   setupTargetMs: SETUP_TARGET_MS, timingIncludes: ['source-collection', 'AI-coordination', 'user-waits', 'ERP-writes', 'independent-readback'], timingIsGuarantee: false,
@@ -37,6 +37,7 @@ register('product_import_capabilities', 'Read plugin scope, installation paths a
   fitWorkflow: ['product_fit_schema', 'product_import_source', 'product_import_images', 'product_import_lookups', 'product_fit_prepare', 'product_fit_review', 'product_fit_register (user instruction required)', 'product_import_get (compact:true).fit'],
   contentWorkflow: ['product_content_schema', 'product_import_source', 'product_import_images (only photos present in the source)', 'product_import_lookups', 'product_content_prepare', 'product_content_review', 'product_content_register (user instruction required)', 'product_import_get (compact:true).contents'],
   dayContentsWorkflow: ['product_day_contents_schema', 'package job completed with finalCheck verified (or explicit productId/scheduleId of a saved package schedule)', 'product_day_contents_prepare', 'product_day_contents_review', 'product_day_contents_register (user instruction required)', 'product_import_get (compact:true).dayContents'],
+  extraOptionsWorkflow: ['product_extra_options_schema', 'package job completed with finalCheck verified (or explicit productId and eventIds)', 'product_extra_options_prepare', 'product_extra_options_review', 'product_extra_options_register (user instruction required)', 'product_import_get (compact:true).extraOptions'],
   authorization: { required: true, reuseExplicitUserDelegation: true, separateUserConfirmationWhenDelegated: false },
   notice: 'The connected AI interprets sources and prepares the full scope. If the user already delegated approval submission, review internally and immediately call product_import_approve with that direct human instruction; do not ask again. Never ask users for JSON or approve every day. Installation is not live ERP acceptance.'
 }));
@@ -126,6 +127,19 @@ register('product_day_contents_register', 'Start the reviewed day content cards 
   id, companyId: z.string().min(1), accountName: z.string().min(1), planDigest: z.string().regex(/^[a-f0-9]{64}$/),
   delegation: z.object({ explicitUserRequest: z.literal(true), userInstruction: z.string().min(1).max(2000) }).strict()
 }, { ...local, destructiveHint: true, openWorldHint: true }, args => runtime.dayContentsRegister(args));
+register('product_extra_options_schema', 'Read the product extra options format (상품 상세 > 추가옵션 tab: options with single/multiple selection, required flag and priced items) before preparing it.', {}, readonly, async () => ({
+  instructions: await readFile(new URL('../skills/eoding-product-register/references/extra-options.md', import.meta.url), 'utf8')
+}));
+register('product_extra_options_prepare', 'Validate and persist extra options for a saved product and its events. Omit productId/eventIds to use this job\'s verified package product and the event it created. Never saves ERP.', {
+  id, extraOptions: object
+}, local, args => runtime.extraOptionsPrepare(args));
+register('product_extra_options_review', 'Read-only extra options review: read each target\'s 추가옵션 tab in the logged-in dedicated browser, list options to append, already existing ones and same-name conflicts. Returns a Korean summary and planDigest. Never saves ERP.', {
+  id
+}, { ...local, openWorldHint: true }, args => runtime.extraOptionsReview(args));
+register('product_extra_options_register', 'Append the reviewed extra options: existing options are sent back unchanged, one guarded save per target, then an independent re-read must show the existing options untouched and each new option exactly once. Requires the review binding and a direct user instruction. A continuation reconciles the journal first; an attempted save is never retried automatically.', {
+  id, companyId: z.string().min(1), accountName: z.string().min(1), planDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  delegation: z.object({ explicitUserRequest: z.literal(true), userInstruction: z.string().min(1).max(2000) }).strict()
+}, { ...local, destructiveHint: true, openWorldHint: true }, args => runtime.extraOptionsRegister(args));
 register('product_import_get','Read job status, progress and independently verified saved links. Compact by default. For subsequent polls pass the previous revision as afterRevision with waitMs:30000; unchanged:true omits repeated state. Terminal results return immediately. includeSource:true retrieves full evidence. Submission is not completion. Uncertain writes require reconciliation, never a new create attempt.', {
   id, includeSource: z.boolean().optional(), compact: z.boolean().optional(),
   afterRevision: z.string().regex(/^[a-f0-9]{64}$/).optional(), waitMs: z.number().int().min(0).max(30000).optional()

@@ -187,6 +187,16 @@ async function drawModalTable(page) {
   if (!Number.isInteger(result.recordsDisplay) || result.recordsDisplay < 0 || result.recordsDisplay > 20 || (result.rows !== result.recordsDisplay && !emptyPlaceholder)) fail('Unexpected image search result table');
 }
 
+// The ERP homepage form counts badge1..badge3 together ("0/15") and refuses to save beyond it.
+export const BADGE_TOTAL_MAX = 15;
+/** Fails before review when the three badges together exceed the ERP's combined length limit. */
+export function assertBadgeLength(fields) {
+  const badges = ['badge1', 'badge2', 'badge3'].map(name => fields?.[name]).filter(value => typeof value === 'string' && value.trim());
+  const length = badges.reduce((sum, value) => sum + [...value.trim()].length, 0);
+  if (length > BADGE_TOTAL_MAX) fail(`뱃지 3개(badge1~badge3)는 합쳐서 ${BADGE_TOTAL_MAX}자 이하여야 합니다(ERP 제한, 공백 포함). 지금 ${length}자: ${badges.join(' / ')}`);
+  return length;
+}
+
 /** The file name the ERP stored for an image. It differs from the uploaded name when that name already exists (ERP appends a suffix such as `_Eq3X4Um`). */
 export function storedImageName(src) {
   const name = decodeURIComponent(new URL(src).pathname.split('/').pop() ?? '');
