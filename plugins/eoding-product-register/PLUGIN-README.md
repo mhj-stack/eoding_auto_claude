@@ -1,4 +1,6 @@
-# 어딩 상품등록기 0.6.0
+# 어딩 상품등록기 0.7.0
+
+0.7.0: 이미 저장된 관광지·선택관광 콘텐츠 가운데 사진이 없는 것에 사진을 덧붙이는 기능을 추가했습니다(`product_content_photos_schema` → `product_content_photos_prepare` → `product_content_photos_review` → `product_content_photos_register`). 콘텐츠 수정 화면에서 읽은 다른 항목은 그대로 다시 보내고 새 사진만 붙이며, 저장 뒤 독립 재조회로 다른 항목이 바뀌지 않았고 계획한 사진이 순서대로 붙었는지 확인합니다. 이미 사진이 있는 콘텐츠는 건너뜁니다.
 
 0.6.0: 상품 상세의 **추가옵션** 탭에 옵션과 가격 항목을 덧붙이는 기능을 추가했습니다(`product_extra_options_schema` → `product_extra_options_prepare` → `product_extra_options_review` → `product_extra_options_register`). 기존 옵션은 그대로 두고 새 옵션만 뒤에 붙이며, 상품과 그 작업이 만든 행사에 각각 저장한 뒤 독립 재조회로 확인합니다. 행사까지 만든 등록이 끝나면 마지막 확인 단계의 쓰기 차단을 풀어 같은 전용 창에서 일차 콘텐츠·추가옵션 저장이 막히지 않습니다. 뱃지 3개는 ERP 제한대로 합쳐 15자를 넘으면 prepare에서 거절합니다.
 

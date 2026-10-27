@@ -27,6 +27,11 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     assert.equal(extraRegister.annotations.destructiveHint, true);
     assert.deepEqual(extraRegister.inputSchema.required.sort(), ['accountName', 'companyId', 'delegation', 'id', 'planDigest']);
     assert.equal(tools.find(tool => tool.name === 'product_extra_options_review').annotations.destructiveHint, false);
+    for (const name of ['product_content_photos_schema', 'product_content_photos_prepare', 'product_content_photos_review', 'product_content_photos_register']) assert.ok(tools.some(tool => tool.name === name), name);
+    const photosRegister = tools.find(tool => tool.name === 'product_content_photos_register');
+    assert.equal(photosRegister.annotations.destructiveHint, true);
+    assert.deepEqual(photosRegister.inputSchema.required.sort(), ['accountName', 'companyId', 'delegation', 'id', 'planDigest']);
+    assert.equal(tools.find(tool => tool.name === 'product_content_photos_review').annotations.destructiveHint, false);
     const batch = tools.find(tool => tool.name === 'product_import_lookups');
     assert.ok(batch);
     assert.equal(batch.annotations.readOnlyHint, true);
@@ -40,8 +45,10 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     assert.deepEqual(approval.inputSchema.required.sort(),['accountName','companyId','delegation','id','planDigest','scope','scopeDigest'].sort());
     const caps = await call('product_import_capabilities');
     assert.equal(caps.requiresLlmApiKey, false);
-    assert.equal(caps.version, '0.6.0'); assert.equal(caps.setupTargetMs, 1200000); assert.equal(caps.timingIsGuarantee, false);
+    assert.equal(caps.version, '0.7.0'); assert.equal(caps.setupTargetMs, 1200000); assert.equal(caps.timingIsGuarantee, false);
     assert.ok(caps.scope.includes('optional-single-departure'));
+    assert.ok(caps.scope.includes('existing-content-photos'));
+    assert.match((await call('product_content_photos_schema')).instructions, /사진이 하나도 없는 것/);
     assert.equal(caps.liveEndToEndVerified, false);
     assert.equal(caps.requiresUserAuthorization,true);
     assert.deepEqual(caps.approvalModes,['human-form','explicit-user-delegation']);
