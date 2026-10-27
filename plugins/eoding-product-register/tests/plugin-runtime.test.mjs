@@ -33,6 +33,7 @@ test('incomplete data returns grouped questions and rejects foreign source/extra
   assert.equal(result.status, 'needs-input');
   assert.ok(result.validation.questions.length);
   await assert.rejects(() => f.runtime.prepare({ id: f.job.id, product, registration: { events: [] } }), /registration/);
+  await assert.rejects(() => f.runtime.prepare({ id: f.job.id, product, registration: { display: { fields: { badge1: 'TOP PICK', badge2: '노팁·노쇼핑', badge3: '5성급 호텔' } } } }), /뱃지 3개.*15자/);
   product.sources[0] = { ...product.sources[0], reference: 'unrelated source' };
   await assert.rejects(() => f.runtime.prepare({ id: f.job.id, product, registration: {} }), /sourceDescriptor/);
 });

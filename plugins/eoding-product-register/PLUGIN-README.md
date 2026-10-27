@@ -1,4 +1,6 @@
-# 어딩 상품등록기 0.5.1
+# 어딩 상품등록기 0.6.0
+
+0.6.0: 상품 상세의 **추가옵션** 탭에 옵션과 가격 항목을 덧붙이는 기능을 추가했습니다(`product_extra_options_schema` → `product_extra_options_prepare` → `product_extra_options_review` → `product_extra_options_register`). 기존 옵션은 그대로 두고 새 옵션만 뒤에 붙이며, 상품과 그 작업이 만든 행사에 각각 저장한 뒤 독립 재조회로 확인합니다. 행사까지 만든 등록이 끝나면 마지막 확인 단계의 쓰기 차단을 풀어 같은 전용 창에서 일차 콘텐츠·추가옵션 저장이 막히지 않습니다. 뱃지 3개는 ERP 제한대로 합쳐 15자를 넘으면 prepare에서 거절합니다.
 
 0.5.1: 원문·초안의 반복 응답과 변화 없는 진행 조회를 줄였습니다. 기본 진행 응답은 compact이며 `afterRevision`/`waitMs`로 변경을 기다릴 수 있습니다. `includeSource:true`, `compact:false`, `product_import_schema({includeExample:true})`로 필요한 상세만 명시적으로 요청합니다. 콘텐츠는 `descriptionSections`로 여러 단락을 한 번에 입력하고 합친 설명의 전체 저장 여부를 재조회합니다. 설명 부족 신호는 비차단이며 원문에 없는 사실을 채우지 않습니다.
 

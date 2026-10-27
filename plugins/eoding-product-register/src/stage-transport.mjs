@@ -21,3 +21,16 @@ export async function installStageTransport(page, key, install) {
     current.verified=true;
   }});
 }
+
+// The last stage has no successor to release it, so a finished run must end the chain explicitly;
+// otherwise its deny-by-default guard keeps blocking later writes (day contents, extra options) in
+// the same dedicated browser. Used keys survive so a finished stage still cannot be replayed.
+export async function releaseStageTransport(page) {
+  const context = typeof page?.context === 'function' ? page.context() : null, current = context && contexts.get(context);
+  if (!current) return false;
+  if (!current.verified || !current.dispose) throw new Error('Last stage is not verified; keep the context guarded');
+  const dispose = current.dispose;
+  contexts.set(context, { used: current.used, verified: true, dispose: async () => {} });
+  await dispose();
+  return true;
+}

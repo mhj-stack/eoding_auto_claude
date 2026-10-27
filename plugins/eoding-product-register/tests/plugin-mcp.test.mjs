@@ -22,6 +22,11 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     const tools = (await client.listTools()).tools;
     for (const name of ['product_import_images', 'product_import_source_supplement', 'product_import_wait', 'product_import_flight_minutes', 'product_import_resume', 'product_fit_schema', 'product_fit_prepare', 'product_fit_review', 'product_fit_register', 'product_content_schema', 'product_content_prepare', 'product_content_review', 'product_content_register', 'product_day_contents_schema', 'product_day_contents_prepare', 'product_day_contents_review', 'product_day_contents_register']) assert.ok(tools.some(tool => tool.name === name));
     assert.ok(!tools.some(tool => /execute|publish/.test(tool.name)));
+    for (const name of ['product_extra_options_schema', 'product_extra_options_prepare', 'product_extra_options_review', 'product_extra_options_register']) assert.ok(tools.some(tool => tool.name === name), name);
+    const extraRegister = tools.find(tool => tool.name === 'product_extra_options_register');
+    assert.equal(extraRegister.annotations.destructiveHint, true);
+    assert.deepEqual(extraRegister.inputSchema.required.sort(), ['accountName', 'companyId', 'delegation', 'id', 'planDigest']);
+    assert.equal(tools.find(tool => tool.name === 'product_extra_options_review').annotations.destructiveHint, false);
     const batch = tools.find(tool => tool.name === 'product_import_lookups');
     assert.ok(batch);
     assert.equal(batch.annotations.readOnlyHint, true);
@@ -35,7 +40,7 @@ test('portable MCP exposes scoped explicit delegation while preserving source an
     assert.deepEqual(approval.inputSchema.required.sort(),['accountName','companyId','delegation','id','planDigest','scope','scopeDigest'].sort());
     const caps = await call('product_import_capabilities');
     assert.equal(caps.requiresLlmApiKey, false);
-    assert.equal(caps.version, '0.5.1'); assert.equal(caps.setupTargetMs, 1200000); assert.equal(caps.timingIsGuarantee, false);
+    assert.equal(caps.version, '0.6.0'); assert.equal(caps.setupTargetMs, 1200000); assert.equal(caps.timingIsGuarantee, false);
     assert.ok(caps.scope.includes('optional-single-departure'));
     assert.equal(caps.liveEndToEndVerified, false);
     assert.equal(caps.requiresUserAuthorization,true);

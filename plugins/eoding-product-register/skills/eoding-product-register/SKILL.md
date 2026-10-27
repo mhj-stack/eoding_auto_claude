@@ -32,7 +32,8 @@ description: 상품 링크나 엑셀로 어딩 ERP의 신규 비공개 상품·�
 7. 요청 범위 전체를 `product_import_review`로 내부 검토한다. 사용자가 승인 제출과 등록을 AI에게 명시적으로 맡겼다면 앞선 대화의 위임도 같은 범위에서 유효하다. 반환된 `id/companyId/accountName/planDigest/scopeDigest/scope` 그대로 `product_import_approve`에 전달하고 `delegation:{explicitUserRequest:true,userInstruction:'직접 사용자의 위임 원문'}`을 포함한다. 다시 허락을 묻거나 검토 폼 클릭을 기다리지 않는다. 위임이 없을 때만 사용자 검토 링크를 제공한다. 회사·계정·범위·CSRF·만료·1회 실행 검사는 유지하며 제출 결과가 불명확하면 자동 재제출하지 않는다.
 8. 실행 후 위 변경 감지 조회로 진행·오류·최종 결과만 확인한다. `approval-submitted`는 완료가 아니다. `completed` 또는 `completed-over-budget`와 `result.finalCheck='verified'`, 상품 링크를 확인한다. 행사 요청 시 `result.departure.eventUrl`까지 확인한다.
 9. 원문 일정에 관광지·식당·선택관광이 있으면(또는 이미 만든 콘텐츠를 일정에 붙여 달라는 요청이면) `product_day_contents_schema`의 [day-contents.md](references/day-contents.md)대로 같은 작업에서 `product_day_contents_prepare` → `product_day_contents_review` → (같은 범위의 지시·위임 시 추가 질문 없이) `product_day_contents_register`를 이어서 실행하고 위 변경 감지 조회의 `.dayContents`로 확인한다. 패키지 결과가 검증된 작업이면 상품·일정표 번호를 생략한다. 기존 상품이면 `productId`·`scheduleId`를 지정한다. 기존 콘텐츠는 번호나 같은 종류·도시·이름으로 재사용하고 없는 것만 만든다.
-10. 마지막 요청까지 완료하면 `product_import_close`로 종료한다. 후속 작업이 남으면 세션을 유지한다. 사용자의 수동 편집을 버릴 수 있으면 먼저 확인한다.
+10. 상품 상세의 추가옵션 탭(싱글룸·객실 업그레이드·추가 서비스 같은 가격 항목)을 요청하면 `product_extra_options_schema`의 [extra-options.md](references/extra-options.md)대로 `product_extra_options_prepare` → `product_extra_options_review` → (같은 범위의 지시·위임 시) `product_extra_options_register`를 실행하고 `.extraOptions`로 확인한다. 일정 카드의 선택관광과 다른 기능이다. 검증된 작업이면 상품·행사 번호를 생략한다.
+11. 마지막 요청까지 완료하면 `product_import_close`로 종료한다. 후속 작업이 남으면 세션을 유지한다. 사용자의 수동 편집을 버릴 수 있으면 먼저 확인한다.
 
 ## 자유여행(FIT) 상품
 
