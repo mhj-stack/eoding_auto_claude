@@ -3,6 +3,7 @@ import { lstat, mkdir, open, readdir, readFile, rename, unlink } from 'node:fs/p
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { isDeepStrictEqual as same } from 'node:util';
 import { chromium } from 'playwright';
 import { ALLOWED_ORIGIN, ERP_URL } from './browser.mjs';
@@ -186,6 +187,19 @@ async function writeSynced(file, value, flag = 'wx') {
   try { await handle.writeFile(JSON.stringify(value) + '\n', 'utf8'); await handle.sync(); } finally { await handle.close(); }
 }
 
+// Windows refuses to replace a file that another handle (progress reader, antivirus, indexer) briefly holds open.
+export async function renameReplacing(from, to, { renameImpl = rename, platform = process.platform, timeoutMs = 2000, pause = delay } = {}) {
+  const deadline = performance.now() + timeoutMs;
+  for (let wait = 10; ; wait = Math.min(wait * 2, 200)) {
+    try { return await renameImpl(from, to); }
+    catch (error) {
+      const contended = platform === 'win32' && ['EPERM', 'EBUSY', 'EACCES'].includes(error.code);
+      if (!contended || performance.now() >= deadline) throw error;
+      await pause(wait);
+    }
+  }
+}
+
 class DurableProductOnlyJournal {
   constructor(directory, plan) {
     this.directory = directory;
@@ -211,7 +225,7 @@ class DurableProductOnlyJournal {
   async _checkpoint(value) {
     const temporary = `${this.checkpointPath}.${randomUUID()}.tmp`;
     await writeSynced(temporary, { at: Date.now(), last: clone(value), events: this.events.length });
-    try { await rename(temporary, this.checkpointPath); } finally { await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
+    try { await renameReplacing(temporary, this.checkpointPath); } finally { await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; }); }
   }
 
   async approval(value) { const event = await this._append({ kind: 'human-approval', approval: value }); await this._checkpoint(event); }
