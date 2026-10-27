@@ -3,12 +3,14 @@ import {createHash} from 'node:crypto';
 import test from 'node:test';
 import {chromium} from 'playwright';
 import {applyProductContent} from '../src/product-content-adapter.mjs';
-import {prepareExistingReferenceImage} from '../src/display-image.mjs';
+import {prepareExistingReferenceImage,storedImageName} from '../src/display-image.mjs';
 import {installProductOnlyFixture,origin,pageUrl,productId,png,pngHash,image,tenant,contentControls} from './fixtures/product-only-page.mjs';
 
 const secondBytes=Buffer.concat([png,Buffer.from([1])]);
 const secondHash=createHash('sha256').update(secondBytes).digest('hex');
-const second={id:'91',src:tenant.imageUrlPrefix+'91.png'};
+// The ERP keeps a unique file name per upload: a name that already exists gets a suffix, so
+// the stored name (what the image search matches) can differ from the approved source name.
+const second={id:'91',src:tenant.imageUrlPrefix+'approved-next_Eq3X4Um.png'};
 const receipts=[image,second];
 const sources=[{kind:'upload',name:'approved-first.png',mimeType:'image/png',bytes:png,sha256:pngHash,alt:'First fixture'},
  {kind:'upload',name:'approved-next.png',mimeType:'image/png',bytes:secondBytes,sha256:secondHash,alt:'Next fixture'}];
@@ -64,7 +66,7 @@ async function setup(t,{scenario='normal',count=1}={}){
    }
    for(const row of document.querySelectorAll('#image_homepage_area .image_list'))row.querySelector('img').src=catalog.find(item=>item.id===row.dataset.id).src;
   });
- },{catalog:receipts.map((receipt,index)=>({...receipt,name:sources[index].name})),scenario});
+ },{catalog:receipts.map(receipt=>({...receipt,name:storedImageName(receipt.src)})),scenario});
  const page=await context.newPage();await page.goto(pageUrl);
  const args={target,tenant,nativePayloads:true,timeoutMs:2000,identity:async()=>{},beforeWrite:async()=>({durable:true}),record:async event=>events.push(event),reconciledDetail:detail(),reconciledUploads:[{sourceSha256:pngHash,receipt:image}],
   display:{fields:{short_description:'Fixture overview'},images:[],imageQuery:'generic query with no matches',useReferenceUploads:true},
@@ -81,8 +83,8 @@ for(const count of [1,2])test(`reuses the first approved image and uploads only 
  if(count===2)assert.equal(f.writes[0].sha256,secondHash);
  assert.equal(f.events.filter(event=>event.phase==='upload-reconciled').length,1);
  assert.deepEqual(result.persisted.images,receipts.slice(0,count));
- assert.ok(f.searches.includes(f.args.display.imageQuery));assert.ok(f.searches.includes(sources[0].name));
- if(count===2)assert.ok(f.searches.includes(sources[1].name));
+ assert.ok(f.searches.includes(f.args.display.imageQuery));assert.ok(f.searches.includes('90.png'));
+ if(count===2){assert.ok(f.searches.includes('approved-next_Eq3X4Um.png'));assert.ok(!f.searches.includes(sources[1].name));}
 });
 
 for(const scenario of ['wrong source','duplicate row','extra attached row'])test(`reconciled image selection rejects ${scenario} before any write`,async t=>{
@@ -109,7 +111,7 @@ for(const invalid of [[],[{sourceSha256:secondHash,receipt:second}],[{sourceSha2
 
 test('reference picker refuses a nonempty image control without changing it',async t=>{
  const f=await setup(t);await f.page.locator('.reference_element select').selectOption('4');await f.page.locator('#add_reference_element').click();const control=f.page.locator('#reference_body .control[data-type="4"]');
- await prepareExistingReferenceImage(f.page,{control,receipt:image,companyId:'7',query:sources[0].name});
- await assert.rejects(prepareExistingReferenceImage(f.page,{control,receipt:image,companyId:'7',query:sources[0].name}),/Cannot overwrite nonempty reference images/);
+ await prepareExistingReferenceImage(f.page,{control,receipt:image,companyId:'7',query:storedImageName(image.src)});
+ await assert.rejects(prepareExistingReferenceImage(f.page,{control,receipt:image,companyId:'7',query:storedImageName(image.src)}),/Cannot overwrite nonempty reference images/);
  assert.equal(await control.locator('.tr_image_list').count(),1);assert.deepEqual(f.writes,[]);
 });

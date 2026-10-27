@@ -187,6 +187,13 @@ async function drawModalTable(page) {
   if (!Number.isInteger(result.recordsDisplay) || result.recordsDisplay < 0 || result.recordsDisplay > 20 || (result.rows !== result.recordsDisplay && !emptyPlaceholder)) fail('Unexpected image search result table');
 }
 
+/** The file name the ERP stored for an image. It differs from the uploaded name when that name already exists (ERP appends a suffix such as `_Eq3X4Um`). */
+export function storedImageName(src) {
+  const name = decodeURIComponent(new URL(src).pathname.split('/').pop() ?? '');
+  if (!name) fail('Image source has no stored file name');
+  return name;
+}
+
 function validateImageQueries(approved, query, fallbackQueries) {
   if (typeof query !== 'string' || !query || query !== query.trim()) fail('Invalid display image search query');
   if (fallbackQueries !== undefined && (!Array.isArray(fallbackQueries) || fallbackQueries.length !== approved.length || fallbackQueries.some(value => typeof value !== 'string' || !value || value !== value.trim()))) fail('Invalid image fallback queries');

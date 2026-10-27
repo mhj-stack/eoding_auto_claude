@@ -1,7 +1,7 @@
 import { prepareReferencePicker } from './reference-picker.mjs';
 import {isDeepStrictEqual as same} from 'node:util';
 import {createHash} from 'node:crypto';
-import {parseDisplayMultipart,readDisplayImageState,prepareExistingDisplayImages,prepareExistingReferenceImage,validateDisplayImages} from './display-image.mjs';
+import {parseDisplayMultipart,readDisplayImageState,prepareExistingDisplayImages,prepareExistingReferenceImage,storedImageName,validateDisplayImages} from './display-image.mjs';
 const copy=x=>structuredClone(x);
 const fail=message=>{throw Error(message)};
 const strip=body=>Array.isArray(body)?body: Object.fromEntries(Object.entries(body).filter(([k])=>k!=='csrfmiddlewaretoken'));
@@ -220,7 +220,7 @@ export async function applyNativeProductContent(page,args){
       await referencePicker.choose('4');await page.locator('#add_reference_element').click();const control=page.locator('#reference_body .control[data-type="4"]').last();await control.waitFor({state:'visible',timeout:timeoutMs});
       for(const source of args.reference.images){
         if(reconciledUpload?.sourceSha256===source.sha256){
-          const receipt=await prepareExistingReferenceImage(page,{control,receipt:reconciledUpload.receipt,companyId:tenant.companyId,query:source.name});
+          const receipt=await prepareExistingReferenceImage(page,{control,receipt:reconciledUpload.receipt,companyId:tenant.companyId,query:storedImageName(reconciledUpload.receipt.src)});
           await record({phase:'upload-reconciled',receipt:copy(receipt),source:{name:source.name,mimeType:source.mimeType,sha256:source.sha256},target:copy(target)});
           uploads.push(receipt);continue;
         }
@@ -237,7 +237,7 @@ export async function applyNativeProductContent(page,args){
       referenceExpected=expectedReference(referenceBase.body,args.reference,uploads);
     }
     await save('reference',target.endpoints.reference,target.controls.referenceSave,referenceExpected);
-    if(useUploads){await tab('base');for(const [name,value] of Object.entries(args.display.fields))await page.locator(`#homepage_post [name="${name}"]`).fill(value);await prepareExistingDisplayImages(page,{images:displayUploads(uploads),companyId:tenant.companyId,query:args.display.imageQuery,fallbackQueries:displayUploads(args.reference.images).map(source=>source.name)});displayExpected.image_sort=JSON.stringify({images:displayUploads(uploads).map(x=>x.id)});await save('display',target.endpoints.display,target.controls.displaySave,displayExpected);}
+    if(useUploads){await tab('base');for(const [name,value] of Object.entries(args.display.fields))await page.locator(`#homepage_post [name="${name}"]`).fill(value);await prepareExistingDisplayImages(page,{images:displayUploads(uploads),companyId:tenant.companyId,query:args.display.imageQuery,fallbackQueries:displayUploads(uploads).map(receipt=>storedImageName(receipt.src))});displayExpected.image_sort=JSON.stringify({images:displayUploads(uploads).map(x=>x.id)});await save('display',target.endpoints.display,target.controls.displaySave,displayExpected);}
     const expected={target:copy(target),display:copy(args.display),detail:copy(args.detail),reference:copy(args.reference),uploads,payloads:{display:displayExpected,detail:detailExpected,reference:referenceExpected}};
     // Reload from the server, then capture native serialization with every POST aborted.
     // This verifies persisted values independently of the filled-in draft and callback.
