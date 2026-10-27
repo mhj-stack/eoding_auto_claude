@@ -33,7 +33,8 @@ description: 상품 링크나 엑셀로 어딩 ERP의 신규 비공개 상품·�
 8. 실행 후 위 변경 감지 조회로 진행·오류·최종 결과만 확인한다. `approval-submitted`는 완료가 아니다. `completed` 또는 `completed-over-budget`와 `result.finalCheck='verified'`, 상품 링크를 확인한다. 행사 요청 시 `result.departure.eventUrl`까지 확인한다.
 9. 원문 일정에 관광지·식당·선택관광이 있으면(또는 이미 만든 콘텐츠를 일정에 붙여 달라는 요청이면) `product_day_contents_schema`의 [day-contents.md](references/day-contents.md)대로 같은 작업에서 `product_day_contents_prepare` → `product_day_contents_review` → (같은 범위의 지시·위임 시 추가 질문 없이) `product_day_contents_register`를 이어서 실행하고 위 변경 감지 조회의 `.dayContents`로 확인한다. 패키지 결과가 검증된 작업이면 상품·일정표 번호를 생략한다. 기존 상품이면 `productId`·`scheduleId`를 지정한다. 기존 콘텐츠는 번호나 같은 종류·도시·이름으로 재사용하고 없는 것만 만든다.
 10. 상품 상세의 추가옵션 탭(싱글룸·객실 업그레이드·추가 서비스 같은 가격 항목)을 요청하면 `product_extra_options_schema`의 [extra-options.md](references/extra-options.md)대로 `product_extra_options_prepare` → `product_extra_options_review` → (같은 범위의 지시·위임 시) `product_extra_options_register`를 실행하고 `.extraOptions`로 확인한다. 일정 카드의 선택관광과 다른 기능이다. 검증된 작업이면 상품·행사 번호를 생략한다.
-11. 마지막 요청까지 완료하면 `product_import_close`로 종료한다. 후속 작업이 남으면 세션을 유지한다. 사용자의 수동 편집을 버릴 수 있으면 먼저 확인한다.
+11. 이미 저장된 관광지·선택관광 콘텐츠에 사진을 나중에 넣어 달라는 요청이면 `product_content_photos_schema`의 [content-photos.md](references/content-photos.md)대로 사진을 `product_import_images`로 모은 뒤 `product_content_photos_prepare` → `product_content_photos_review` → (같은 범위의 지시·위임 시) `product_content_photos_register`를 실행하고 `.contentPhotos`로 확인한다. 사진이 없는 콘텐츠에만 붙고 다른 항목은 바꾸지 않는다.
+12. 마지막 요청까지 완료하면 `product_import_close`로 종료한다. 후속 작업이 남으면 세션을 유지한다. 사용자의 수동 편집을 버릴 수 있으면 먼저 확인한다.
 
 ## 자유여행(FIT) 상품
 
